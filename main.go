@@ -8,15 +8,16 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 )
 
 var (
-	token  string
-	userID string
-	client = &http.Client{}
-	reader = bufio.NewReader(os.Stdin)
+	token        string
+	userID       string
+	messageCount int = 0
+	failureCount int = 0
+	client           = &http.Client{}
+	scan             = bufio.NewScanner(os.Stdin)
 )
 
 type sendbody1 struct {
@@ -42,10 +43,14 @@ func main() {
 	case 200:
 		var decoded map[string]string
 		json.Unmarshal([]byte(response), &decoded)
+		fmt.Print("Enter your message: ")
 		for {
-			text, _ := reader.ReadString('\n')
-			text = strings.Replace(text, "\r\n", "", -1)
-			sendMessage(decoded["id"], text)
+			scan.Scan()
+			text := scan.Text()
+			if len(text) > 0 {
+				sendMessage(decoded["id"], text)
+				fmt.Print(fmt.Sprintf("Enter your next message[Msg(s):%d,fail(s):%d]: ", messageCount, failureCount))
+			}
 		}
 	case 400:
 		exit("wrong UserID")
@@ -62,8 +67,18 @@ func sendMessage(channelID string, message string) {
 	}
 	jsonres, _ := json.Marshal(sendmessage)
 	code, _ := sendrequest("POST", fmt.Sprintf("https://discord.com/api/v8/channels/%s/messages", channelID), bytes.NewReader(jsonres))
-	if code == 429 {
-		fmt.Println("Hit a rate limit try resending that last message.")
+	switch code {
+	case 403:
+		failureCount++
+		fmt.Println("Couldn't DM that user (no mutual servers?)")
+	case 429:
+		failureCount++
+		fmt.Println("Hit a rate limit try resending that last message in a few seconds.")
+	case 200:
+		messageCount++
+	default:
+		failureCount++
+		fmt.Println("something odd happened")
 	}
 }
 
