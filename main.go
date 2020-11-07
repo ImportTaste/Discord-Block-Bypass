@@ -68,14 +68,14 @@ func sendMessage(channelID string, message string) {
 	jsonres, _ := json.Marshal(sendmessage)
 	code, _ := sendrequest("POST", fmt.Sprintf("https://discord.com/api/v8/channels/%s/messages", channelID), bytes.NewReader(jsonres))
 	switch code {
+	case 200:
+		messageCount++
 	case 403:
 		failureCount++
 		fmt.Println("Couldn't DM that user (no mutual servers?)")
 	case 429:
 		failureCount++
 		fmt.Println("Hit a rate limit try resending that last message in a few seconds.")
-	case 200:
-		messageCount++
 	default:
 		failureCount++
 		fmt.Println("something odd happened")
